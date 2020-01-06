@@ -1,0 +1,69 @@
+go
+
+Thu Dec 26 19:04:10 201905 dec 2020
+
+%!target: man
+%!encoding: UTF-8
+
+%!postproc(man): ' \(#\w+\)' ''
+
+%!options(html): --mask-email --toc
+%!postproc(html): <HEAD> '<HEAD>\n<STYLE>body{margin:3em;} pre{background:#ffc;}</STYLE>'
+
+%% LOG
+%% dom,  5 de jan de 2020 17:20:47: created
+%% Created: qui, 27 de mar de 2014
+
+= NAME =[name]
+
+go - move (a.k.a chdir) to my c projects directory.
+
+
+= SYNOPSIS =
+
+**go** [project-directory]
+
+
+= DESCRIPTION =
+
+//go// will test if exists. Existing, chdir there. Otherwise a brand new dir project will be created if some dummy files to start a new c project.
+
+```
+- withou arguments go chdir to "my projs" root dir.
+- executable of go is in /usr/local/bin (which is better is in path)
+
+- at command "go foo", it will be created a dir underneath basepath (/cygdrive/h/bench/src) a dir with "foo" name
+
+- that dir "foo" will contain:
+  - README.md (with some data - date, author, etc)
+  - Makefile (with commands - all, run, clean and labels to build foo)
+  - foo.t2t: skelton of man page to be compiled with txt2tags (https://txt2tags.org)
+  - .gitignore - contain initial files for git ignore (duh!)
+```
+
+
+= DEPENDENCIES =
+
+```
+- ./bash_aliases: have to contain following line:
+
+    alias go='function _go(){ cd "`/usr/local/bin/go $1`"; };_go'
+```
+
+= EXAMPLE =
+
+```
+$ ./go foo
+/cygdrive/h/bench/src/foo not exist. Create? (y/n)
+
+```
+
+= WISHLIST =
+
+```
+- prepare relocatable configuration under .config
+- /etc/config
+```
+
+= AUTHOR =
+  2019,20 Written by MarzVix (marzvix@gmail.com)
