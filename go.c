@@ -1,152 +1,234 @@
-/* go.c: utility to send to some dir
-         - my projects bench or 
-	 - some project itself, under bench
+/*
+NAME
+  go - move (a.k.a chdir) to my c projects directory.
 
-Goal: Intent to be used with aliases (.bash_alises)
+SYNOPSIS
+  go [project-directory]
 
-Use: go [some basename of project]
+DESCRIPTION
+  go is an utility to send (chdir) to some dir where
+  project lives
 
-if "some basename" not exist, ask me if want to create
-if not, goto the bench
+   - usuallly under bench or 
+   - some project itself, under bench
 
-Author: marez
-Created: qui, 26 de dez de 2019 11:02:36
+  go read its own configuration
+  
+  go will test project-directory exists.
+
+  if exists. Chdir there.
+
+  Otherwise, creates a brand new dir project containing
+  with some dummy files (hello) to start a new c project.
+    
+  - at command "go foo", it will be created a dir underneath basepath (/cygdrive/h/bench/src) a dir with "foo" name
+
+  - that dir "foo" will contain:
+    - README.md (with some data - date, author, etc)
+    - Makefile (with commands - all, run, clean and labels to build foo)
+    - foo.t2t: skelton of man page to be compiled with txt2tags (https://txt2tags.org)
+    - .gitignore - contain initial files for git ignore (duh!)
+    - foo.c (where foo is the name choose for project dir)
+    - foo.h
+
+DEPENDENCIES
+- ./bash_aliases: have to contain following line:
+
+    alias go='function _go(){ cd "`/usr/local/bin/go $1`"; };_go'
+
+EXAMPLE
+
+$ ./go foo
+/cygdrive/h/bench/src/foo not exist. Create? (y/n)
+
+
+WISHLIST
+- prepare relocatable configuration under .config
+- /etc/config
+
+BUGS
+- go presupposes existence of ~/.config/go/go.conf
+	       
+AUTHOR
+  2019,20 Written by MarzVix (marzvix@gmail.com)
+  Created: qui, 26 de dez de 2019 11:02:36
 */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <ctype.h>
 #include <time.h>
+#include <fcntl.h>
+#include <libgen.h>
 
-void prep_repo(char *prj, char *togo)
-{
-  FILE *f;
-  time_t t = time(NULL);
-  struct tm tm = *localtime(&t);
-  char buf[64];
-  
-  /* create README.md */
-  strcpy(buf, togo);
-  strcat(buf, "/README.md");
-  f = fopen(buf,"w");
-  /* insert header in ROADMAP */
-  fprintf(f, "Project: %s\n", prj);
-  fprintf(f, "Goal: \n");
-  fprintf(f, "Author: marez <mace.murez@gmail.com\n");
-  strftime(buf, 64, "Created: %c\n", &tm);
-  fprintf(f,  buf);
-  fclose(f);
-  
-  /* create .gitignore */
-  strcpy(buf, togo);
-  strcat(buf, "/.gitignore");
-  f = fopen(buf,"w");
-  /* insert initial lines in gitignore */
-  fprintf(f, "**/*.code\n");
-  fprintf(f, "**/#*\n");
-  fprintf(f, "**/.#*\n");
-  fprintf(f, "**/*.o\n");
-  fprintf(f, "**/*.obj\n");
-  fprintf(f, "**/*.map\n");
-  fprintf(f, "**/*.asm\n");
-  fprintf(f, "**/*.exe\n");
-  fprintf(f, "**/*.stackdump\n");
-  fprintf(f, "**/*.core\n");
-  fprintf(f, "**/*~\n");
-  fclose(f);
+#include "toolkit.h"
+#include "filetools.h"
+#include "txtools.h"
 
-  /* create initial Makefile */
-  strcpy(buf, togo);
-  strcat(buf, "/Makefile");
-  f = fopen(buf,"w");
-  /* insert clean section in Makefile */
-  fprintf(f, "# Makefile for %s\n\n", prj);
-  fprintf(f, "CC = gcc\n");
-  fprintf(f, "CFLAGS = -g3 -O0 -Wall -Wextra\n\n");
-  fprintf(f, "ARGS =\n\n");
-  fprintf(f, "INSTALDIR = /usr/local/bin\n\n");
-  fprintf(f, "all: %s\n\n",prj);
-  fprintf(f, "run:\n\t./%s $(ARGS)\n\n",prj);
-  fprintf(f, "install: %s\n\tcp ./%s $(INSTALDIR)/\n\n",prj,prj);
-  fprintf(f, "uninstall: $(INSTALDIR)/%s\n\trm -i $(INSTALDIR)/%s\n\n",prj,prj);
-  fprintf(f, "%s: %s.o\n\n",prj,prj);
-  fprintf(f, "%s.o: %s.c\n\n",prj,prj);
-  fprintf(f, ".PHONY: clean\nclean:\n");
-  fprintf(f, "\t$(RM) *.o\n");
-  fprintf(f, "\t$(RM) *.exe\n");
-  fprintf(f, "\t$(RM) *.asm\n");
-  fprintf(f, "\t$(RM) *.map\n");
-  fprintf(f, "\t$(RM) *.stackdump\n");
-  fprintf(f, "\t$(RM) *.core\n");
-  fclose(f);
+#define MAX_PAD 64
 
-  /* create pilot */
-  strcpy(buf, togo);
-  strcat(buf, "/");
-  strcat(buf, prj);
-  strcat(buf, ".c");
-  f = fopen(buf,"w");
-  /* insert main in pilot */
-  fprintf(f, "#include <stdio.h>\n");
-  fprintf(f, "#include <stdlib.h>\n");
-  fprintf(f, "#include <strings.h>\n\n");
-  fprintf(f, "int main(int argc, char *argv[])\n");
-  fprintf(f, "{\n\tint i;\n");
-  fprintf(f, "\n\tif(argc > 1)\n");
-  fprintf(f, "\t\tfor (i=0; i < argc; i++)\n");
-  fprintf(f, "\t\t\tprintf(\"Hello, %%s!\\n\", argv[i]);\n");
-  fprintf(f, "\telse\n");
-  fprintf(f, "\t\tprintf(\"Hello, %%s!\\n\", argv[0]);\n");
-  fprintf(f, "\texit(0);\n}");
-  fclose(f);
+static void create_readme(void);
+static void create_gitignore(void);
+static void create_header(void);
+static void create_pilot(void);
+static void create_makefile(void);
 
-  fprintf(stderr, "%s created.\n", togo);
-}
+char pad[MAX_PAD];
+FILE *fp;
 
-char *get_bench(void)
-{
-  return "/cygdrive/h/bench/src/";
-}
+static struct {
+  char *prj;
+  char *goal;
+  char *bench;
+  char *author;
+} conf =
+  {
+   NULL,
+   NULL,
+   "/cygdrive/h/bench",
+   "MarzVix (marzvix@gmail.com)"
+  };
 
 int main(int argc, char *argv[])
 {
-  struct stat sb;
-  const char *bench = get_bench();
-  char togo[64];
+  strcpy(pad, conf.bench);  
 
-  strcpy(togo, bench);
-  
-  if (argc > 1)	{
-    strcat(togo, argv[1]); /* add dir name to path where to go 
-			      and test if dir exist */
-    if (stat(togo, &sb) == 0) {  /* path exist ? */
-      if (!(S_ISDIR(sb.st_mode)))  /* exist, but is not a dir */
-	strcpy(togo,"."); /* stays the same */
-    }
-    else {
-      /* dir not exist */
-      /* inform dir not exist and ask if want to create */
-      fprintf(stderr, "%s not exist. Create? (y/n)", togo);
-      if ('Y' == toupper((char) getchar_unlocked())) { /* yeap */
-	/* create */
-	int status;
-	status = mkdir(togo, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-	if (status == 0) 
-	  prep_repo(argv[1], togo);
-	else {
-	  fprintf(stderr, "%s not created.\n", togo);
-	  strcpy(togo,"."); /* stays at . */
-	  exit(1);
-	}
-      }
-      else  /* nope */
-	strcpy(togo,"."); /* stays at . */
+  if (argc > 1)  {        /* default - go to bench root */
+    conf.prj = argv[1];
+    strcpy(pad, adddirname(pad, conf.prj));
+
+    if(!exist(pad)) {        /* if dir not exist */
+      if (argc > 2) /* goal defined */
+	conf.goal = argv[2];
+      /* create bench [+ dir] */
+      create_dir(pad);
+      create_readme();
+      create_gitignore();
+      create_header();
+      create_pilot();
+      create_makefile();
+      strcpy(pad, conf.bench);  
+      strcpy(pad, adddirname(pad, argv[1]));
     }
   }
-  /* chdir to bench + dir to go */
-  fprintf(stderr, "chdir to %s\n", togo);
-  printf("%s", togo);
-  exit(0);
+
+  /* string to bench [+ dir] */
+  puts(pad);
+  return EXIT_SUCCESS;
+}
+
+static void create_readme(void)
+{
+  time_t result = time(NULL);
+  
+  /* create README.md */
+  sprintf(pad, "%s/%s/README.md", conf.bench, conf.prj);
+  fp = fopen(pad,"w");
+  /* insert header in ROADMAP */
+  fprintf(fp, "Project: %s\n", conf.prj);
+  fprintf(fp, "Goal: %s\n", conf.goal);
+  fprintf(fp, "Author: %s\n", conf.author);
+  fprintf(fp, "%s", asctime(localtime(&result)));
+  fclose(fp);
+}
+
+static char *ignore[] =
+  {
+   "*~",
+   "#*",
+   ".#*",
+   "*.o",
+   "*.obj",
+   "*.map",
+   "*.asm",
+   "*.exe",
+   "*.code",
+   "*.core",
+   "*.stackdump",
+   NULL
+  };
+
+static void create_gitignore(void)
+{
+  char **ig = ignore;
+
+  /* create .gitignore */
+  sprintf(pad, "%s/%s/.gitignore", conf.bench, conf.prj);
+  fp = fopen(pad,"w");
+
+  /* insert initial lines in gitignore */
+  while(*ig)
+    fprintf(fp, "\\*\\*\\/%s\n", *ig++);
+  fclose(fp);
+}
+  
+static void create_header(void)
+{
+  char *h = (char *) pad;
+
+  /* create pilot header */
+  sprintf(pad, "%s/%s/%s.h", conf.bench, conf.prj, conf.prj);
+  fp = fopen(pad,"w");
+  txtupper(h, conf.prj);
+  fprintf(fp, "#ifndef _%s_H\n", h);
+  fprintf(fp, "#define _%s_H\n", h);
+  fprintf(fp, "void %s(int, char **)\n", conf.prj);
+  fprintf(fp, "#endif /* _%s_H */\n", h);
+  fclose(fp);
+}
+
+static void create_pilot(void)
+{
+  /* create pilot header */
+  sprintf(pad, "%s/%s/%s.c", conf.bench, conf.prj, conf.prj);
+  fp = fopen(pad,"w");
+  /* create pilot c */
+  fprintf(fp, "#include <stdio.h>\n");
+  fprintf(fp, "#include <stdlib.h>\n");
+  fprintf(fp, "#include <strings.h>\n");
+  fprintf(fp, "#include <libgen.h>\n\n");
+
+  fprintf(fp, "void %s(int c, char **v) {\n", conf.prj);
+  fprintf(fp, "\n\tint i;\n");
+  fprintf(fp, "\n\tprintf(\"Hello, %%s!\\n\", basename(v[0]));\n");
+  fprintf(fp, "\tfor (i=0; i < c; i++)\n");
+  fprintf(fp, "\t\tprintf(\"Hello, argc[%%i] %%s!\\n\", i, v[i]);\n}\n\n");
+
+  /* insert main in pilot */
+  fprintf(fp, "int main(int argc, char *argv[])\n");
+  fprintf(fp, "{\n");
+  fprintf(fp, "\t%s(argc, argv);\n", conf.prj );
+  fprintf(fp, "\treturn 0;\n}");
+  fclose(fp);
+}
+
+static void create_makefile(void)
+{
+  static char pad[MAX_PAD];
+  char **rm = ignore;
+
+  /* create initial Makefile */
+  sprintf(pad, "%s/%s/Makefile", conf.bench, conf.prj);
+  fp = fopen(pad,"w");
+
+  /* insert clean section in Makefile */
+  fprintf(fp, "# Makefile for %s\n\n", conf.prj);
+  fprintf(fp, "CC = gcc\n");
+  fprintf(fp, "CFLAGS = -g3 -O0 -Wall -Wextra\n\n");
+  fprintf(fp, "ARGS =\n\n");
+  fprintf(fp, "INSTALDIR = /usr/local/bin\n\n");
+  fprintf(fp, "all: %s\n\n",conf.prj);
+  fprintf(fp, "run:\n\t./%s $(ARGS)\n\n",conf.prj);
+  fprintf(fp, "install: %s\n\tcp ./%s $(INSTALDIR)/\n\n",
+	  conf.prj, conf.prj);
+  fprintf(fp, "uninstall: $(INSTALDIR)/%s\n\trm -i $(INSTALDIR)/%s\n\n",conf.prj, conf.prj);
+  fprintf(fp, "%s: %s.o\n\n",conf.prj,conf.prj);
+  fprintf(fp, "%s.o: %s.c\n\n",conf.prj,conf.prj);
+  fprintf(fp, ".PHONY: clean\nclean:\n");
+  while(*rm)
+    fprintf(fp, "\t$(RM) %s\n", *rm++);
+  fclose(fp);
 }

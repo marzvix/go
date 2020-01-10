@@ -45,6 +45,8 @@ go - move (a.k.a chdir) to my c projects directory.
 = DEPENDENCIES =
 
 ```
+- libtoolkit - functions to manipulate files, txt and other amenities
+
 - ./bash_aliases: have to contain following line:
 
     alias go='function _go(){ cd "`/usr/local/bin/go $1`"; };_go'

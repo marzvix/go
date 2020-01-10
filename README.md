@@ -23,6 +23,14 @@ Notes:
   - Makefile (with commands - all, run, clean and labels to build xxx)
   - .gitignore - contain initial files for git ignore (duh!)
 
+
+* qui,  9 de jan de 2020 23:10:47
+
+- split txt, files & dirs and toolkit (others) function in a lib
+  libtoolkit and this project have to be linked to libtoolkit
+
+- reestructured
+
 TODO:
 
 - prepare relocatable configuration
