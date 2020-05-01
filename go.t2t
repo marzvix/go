@@ -16,7 +16,7 @@ Thu Dec 26 19:04:10 201905 dec 2020
 
 = NAME =[name]
 
-go - move (a.k.a chdir) to my c projects directory.
+go - create or move (a.k.a chdir) to my c projects directory.
 
 
 = SYNOPSIS =
@@ -29,7 +29,7 @@ go - move (a.k.a chdir) to my c projects directory.
 //go// will test if exists. Existing, chdir there. Otherwise a brand new dir project will be created if some dummy files to start a new c project.
 
 ```
-- withou arguments go chdir to "my projs" root dir.
+- without arguments go chdir to "my projs" root dir.
 - executable of go is in /usr/local/bin (which is better is in path)
 
 - at command "go foo", it will be created a dir underneath basepath (/cygdrive/h/bench/src) a dir with "foo" name

@@ -88,7 +88,7 @@ static struct {
   {
    NULL,
    NULL,
-   "/cygdrive/c/bench",
+   "/cygdrive/w/bench",
    "MarzVix (marzvix@gmail.com)"
   };
 
