@@ -65,8 +65,8 @@ AUTHOR
 #include <libgen.h>
 
 #include "toolkit.h"
-#include "filetools.h"
-#include "txtools.h"
+/* #include "filetools.h" */
+/* #include "txtools.h" */
 
 #define MAX_PAD 64
 
@@ -88,7 +88,7 @@ static struct {
   {
    NULL,
    NULL,
-   "/cygdrive/h/bench",
+   "/cygdrive/c/bench",
    "MarzVix (marzvix@gmail.com)"
   };
 

@@ -26,8 +26,9 @@ $(PROJ): $(PROJ).o $(TKDIR)/toolkit.lib
 
 $(PROJ).o: $(PROJ).c
 
-$(TKDIR)/toolkit.lib: $(TKDIR)/toolkit.o $(TKDIR)/filetools.o  $(TKDIR)/txtools.o
-	ar rcs $@ $^
+# $(TKDIR)/filetools.o  $(TKDIR)/txtools.o
+# $(TKDIR)/toolkit.lib: $(TKDIR)/toolkit.o 
+# 	ar rcs $@ $^
 
 install: $(PROJ) $(PROJ).1.gz uninstall
 	cp $(PROJ).1.gz $(MANDIR)/
